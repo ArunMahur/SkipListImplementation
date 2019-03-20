@@ -1,0 +1,377 @@
+import java.util.*;
+
+public class SkipList<E> {
+	
+	  private Node<Entry> negEnd;             //special left key for skip list start       
+
+	  private Node<Entry> posEnd;           //special right key for skip list right end            
+	  
+	  private int size = 0;                      
+	  private int height = 0; 
+	
+	  private Node<Entry> head;
+	  private Node<Entry> tail; 
+	  
+	  private FakeRandomHeight fakeHeight = new FakeRandomHeight();
+
+  static class Node<E> {
+
+    private Entry element;             
+    private Node<E> prev;           
+
+    private Node<E> next;          
+    
+    private Node<E> above;        
+    private Node<E> below;         
+	
+ 
+    public Node(Entry e) {
+      element = e;
+      prev = null;
+      next = null;
+      above = null;
+      below = null;
+    }
+
+    public Entry getElement() { return element; }
+
+    public Node<E> getPrev() { return prev; }
+    public Node<E> getNext() { return next; }
+    public Node<E> getAbove() { return above; }
+    public Node<E> getBelow() { return below; }
+   
+    
+
+    public void setAbove(Node<E> a) { above = a; }
+
+    public void setBelow(Node<E> b) { below = b; }
+
+    public void setNext(Node<E> n) { next = n; }
+
+    public void setPrev(Node<E> p) { prev = p; }
+
+    public String toString() {
+       return String.format("%d:%s", this.element.key, this.element.value);
+    }
+  } 
+
+  public SkipList() {
+      Entry neg = new Entry(Integer.MIN_VALUE, null); //special key values negative inf (left end)
+      Entry pos = new Entry(Integer.MAX_VALUE, null); //special key value pos inf (right end)
+      Node<Entry> negEnd = new Node<Entry>(neg);
+      Node<Entry> posEnd = new Node<Entry>(pos);
+      negEnd.setNext(posEnd); 
+      posEnd.setPrev(negEnd);
+      head = negEnd;	//head is the leftmost, topmost node in the map
+      tail = posEnd;	//tail is the rightmost, topmost node in the map
+      
+  }
+
+  public int size() { return size; }
+
+  public int height() { return height; }
+ 
+  public boolean isEmpty() { return size == 0; }
+
+  public Entry first() {
+    if (isEmpty()) return null;
+    return negEnd.getNext().getElement();  
+  }
+
+  public Entry last() {
+    if (isEmpty()) return null;
+    return posEnd.getPrev().getElement();    
+  }
+
+  public void addFirst(Entry e) {
+    addBetween(e, negEnd, negEnd.getNext());    // place just after the header since the header is a special key
+  }
+
+  public void addLast(Entry e) {
+    addBetween(e, posEnd.getPrev(), posEnd);  // place just before the trailer since the trailer is the special key
+  }
+
+  public Entry removeFirst() {
+    if (isEmpty()) return null;                  // cannot remove if the list is empty
+    return remove(negEnd.getNext());             // first element will be the next after the header
+  }
+  
+  
+  public String removal(int key) {
+	  Node<Entry> temp = search(key); //use the ndoe greatest key thath is less than the key we are searching for
+	  if (temp.element.key != key) {
+		  System.out.println("doesnt exist");  //for testing purposes
+		  return "none: does not exist";		//for testing purposes
+	  }
+	  Node<Entry> p = search(key);				//holds the search node
+	  Node<Entry> tempp = p;					//holds original search node so the p variable can be manipulated
+	  int counter = 0;
+
+	  while (p != null && p.element.key == key) {
+		  counter++;
+		  p = p.above;
+	  }
+	  p = temp;
+	  temp = p;
+	 
+	  for (int i = 0; i < counter; i++) {
+		  Node<Entry> leftOf = p.prev;
+		  Node<Entry> rightOf = p.next;
+		  Node<Entry> holder = p;
+		  //if the deletion of the node will create an empty level
+		  if (leftOf.element.value == null && rightOf.element.value == null) {
+			  leftOf.above.below = leftOf.below;
+			  rightOf.above.below = rightOf.below;
+			  leftOf.below.above = leftOf.above;
+			  rightOf.below.above = rightOf.above;
+			  height--;			
+		  }  
+		  leftOf.next = rightOf;
+		  rightOf.prev = leftOf;
+		  p = p.above;
+		  
+	  }
+
+	  if (counter == 0) {
+		  return "none";
+	  }
+	 return temp.element.value;
+  }
+
+  public Entry removeLast() {
+    if (isEmpty()) return null;                  // nothing to remove
+    return remove(posEnd.getPrev());            // last element is before trailer
+  }
+
+ 
+  private void addBetween(Entry e, Node<Entry> predecessor, Node<Entry> successor) {
+    // create and link a new node
+    Node<Entry> newest = new Node<>(e);
+    predecessor.setNext(newest);
+    successor.setPrev(newest);
+    size++;
+  }
+
+
+  private Entry remove(Node<Entry> node) {
+    Node<Entry> predecessor = node.getPrev();
+    Node<Entry> successor = node.getNext();
+    predecessor.setNext(successor);
+    successor.setPrev(predecessor);
+    size--;
+    return node.getElement();
+  }
+
+  
+  public String toString() {
+    StringBuilder sb = new StringBuilder("(");
+    Node<Entry> walk = negEnd.getNext();
+    while (walk != posEnd) {
+      sb.append(walk.getElement());
+      walk = walk.getNext();
+      if (walk != posEnd)
+        sb.append(", ");
+    }
+    sb.append(")");
+    return sb.toString();
+  }
+  ///////////// ----------  Skip list Implementation  -----------------------
+  
+  
+//search through skip list to find the node with the key passed in  
+  public Node<Entry> get(int key) { 
+	  //start at the head
+      Node<Entry> temp = head;
+      //move down until we are at the lowest level
+      while(temp.below!=null) {
+          temp = temp.below;
+      }
+     
+      while(temp.next!=null) {
+    
+          if(temp.element.key == key) {
+              return temp; 
+          }
+         
+          temp = temp.next;
+      }
+      
+      return null; 
+  }
+  
+  
+  //find the node position with the greatest key less than or equal to the given key, in the lowest list
+  public Node<Entry> search (int key) { 
+	  //start with the head
+      Node<Entry> temp = head; 
+      while(temp.below !=null) { 
+          temp = temp.below;
+      }
+   
+      while(temp.next.element.key <= key){		
+          temp = temp.next; 
+          }
+      return temp; 
+  } 
+  
+  public void putPointers(Node<Entry> pos, Node<Entry> ins) {
+      ins.prev = pos; //change all links
+      ins.next = pos.next;
+      ins.above = null;
+      pos.next.prev = ins;
+      pos.next = ins;
+      if(height==0) {
+    	  newLevel();
+      }
+      
+	  }
+
+
+  public void newLevel () {
+      Entry neg = new Entry(Integer.MIN_VALUE,null);
+      Entry pos = new Entry(Integer.MAX_VALUE,null);
+      Node<Entry> negEnd = new Node<Entry>(neg);
+      Node<Entry> posEnd = new Node<Entry>(pos);
+      negEnd.next = posEnd;
+      negEnd.below = head;
+      posEnd.prev = negEnd;
+      posEnd.below = tail;
+      head.above = negEnd;
+      tail.above = posEnd;
+      head = negEnd;
+      tail = posEnd;
+      height++;
+  }
+  
+  public Entry put(int key, String value) {
+    Node<Entry> position = get(key);  
+    if(position!=null) {
+        return position.element;	
+    } 
+    
+        position = search(key);  
+        Node<Entry> insertionNode =  new Node<Entry>(new Entry(key,value)); 
+        putPointers(position, insertionNode);
+
+    int level = 0;
+    int coinToss = fakeHeight.get();
+    
+    while(level <= coinToss) {
+
+        if(level>0) {
+            if(level >= height) {
+                //add level
+            	newLevel();
+            }
+            //go backwards until a node have a non - empty upward pointer
+            while(position.above == null) {
+                position = position.prev;
+            }
+            //position holds the node that is the closest left position of the insertion node on the above level
+            position = position.above;
+            if(level>0) {
+                Node<Entry> insert = new Node<Entry> (new Entry(key,value)); //inserting new node
+                putPointers(position, insert);
+                insertionNode.above = insert; 
+                insertionNode = insert;
+            } 
+        }
+        level++;
+    }
+    return insertionNode.element;  
+  }
+  
+  
+  
+  
+  //list of between and including the two key times 
+  public ArrayList<Entry> subMap(int key1, int key2) {
+      ArrayList<Entry> output = new ArrayList<Entry>();
+    
+      Node<Entry> start = search(key1);
+      
+      Node<Entry> pos = start;
+     
+      if(pos.element.value == null) {
+        pos = pos.next;
+      }
+      while(pos.element.value != null) {
+    	 
+          if(pos.element.key >= key1 && pos.element.key <= key2) {
+              output.add(pos.element);
+          }
+          pos = pos.next;
+      }
+      return output; 
+     
+  }
+  
+
+  public void printStack() {
+      int count = height;
+      Node<Entry> temp = head;
+      Node<Entry> first;
+      System.out.format("(S%d) empty%n", count);
+      temp = temp.below;
+      //descending print order
+      for (int i = 0; i < height; i++){
+          count--;
+          first = temp;
+          System.out.format("(S%d)", count);
+          while(temp.next.next != posEnd) {
+              temp = temp.next;
+              System.out.format(" %08d: ", temp.getElement().key);
+              System.out.print(temp.getElement().value);
+          }
+          System.out.format("%n");
+          temp = first.below;  
+  
+      }
+  }
+  
+} 
+public class SkipListImplimentation extends Thread
+ {
+       public static void main(String args[])
+	   {
+	        Thread t0=new Thread(new Runnable(){
+			   
+			    public void run(){
+						Node.Node();
+						Node.getElement();
+				}
+			});
+	        Thread t1=new Thread(new Runnable(){
+			   
+			    public void run(){
+						SkipList.SkipList();
+						SkipList.addFirst(e);
+						SkipList.addLast(e);
+				}
+			});
+			Thread t2=new Thread(new Runnable(){
+			   
+			    public void run(){
+						SkipList.removal(key);
+						SkipList.addBetween(e,predecessor,successor);
+				}
+			});
+			Thread t3=new Thread(new Runnable(){
+			   
+			    public void run(){
+						SkipList.get(key);
+						SkipList.search(key);
+				}
+			});
+			t0.start();
+			t1.start();
+			t2.start()
+			SkipList obj=new SkipList();
+			obj.toString();
+			obj.putPointers(pos, ins);
+			t3.start();
+			obj.newLevel();
+			obj.addBetween();
+			obj.printStack();
+	   }
+ }
